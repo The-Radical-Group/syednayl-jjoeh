@@ -1,0 +1,33 @@
+name: Run Jest Tests and Send Results
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        run: npm test -- --json --outputFile=jest-results.json
+
+      - name: Install jq
+        run: sudo apt-get install jq
+
+      - name: Read Jest results file and include GitHub handle
+        id: read-results
+        run: |
+          JSON_RESULTS=$(jq -c '.' jest-results.json)
+          GITHUB_JSON="{\"githubUser\": \"${{ github.actor }}\", \"challengeId\": \"OOR6TQNB55p8HsDo2aTQ\", \"testResults\": $JSON_RESULTS}"
+          echo "$GITHUB_JSON" > results.json
+
+      - name: Send test results to webhook
+        run: |
+          curl -X POST -H "Content-Type: application/json" --data @results.json "https://us-central1-radicalx-68127.cloudfunctions.net/githubActionsWebhook"
